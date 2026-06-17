@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+public/uploads/
+tmp-upload-test.txt
+push_output.txt

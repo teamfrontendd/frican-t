@@ -10,26 +10,62 @@ import { FileDropzone } from "@/components/FileDropzone"
 
 export default function UploadPage() {
   const router = useRouter()
-  const [hasFile, setHasFile] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null)
   const [hasUrl, setHasUrl] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [url, setUrl] = useState("")
+  const [uploadResult, setUploadResult] = useState<{ publicUrl: string; files: string[] } | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleFileSelect = () => {
-    setHasFile(true)
+  const handleFileSelect = (files: FileList) => {
+    setSelectedFiles(files)
+    setHasUrl(false)
+    setError(null)
+    setUploadResult(null)
   }
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.trim()
     setUrl(value)
     setHasUrl(value.length > 0)
+    if (value.length > 0) {
+      setSelectedFiles(null)
+    }
   }
 
   const handleGenerateCodeMap = async () => {
-    if (!hasFile && !hasUrl) return
+    if (!selectedFiles && !hasUrl) return
 
     setIsLoading(true)
-    // Simulate API call
+    setError(null)
+    setUploadResult(null)
+
+    if (selectedFiles) {
+      const formData = new FormData()
+      Array.from(selectedFiles).forEach((file) => formData.append("files", file))
+
+      try {
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        })
+
+        if (!response.ok) {
+          const json = await response.json().catch(() => null)
+          throw new Error(json?.error || "Upload failed")
+        }
+
+        const data = await response.json()
+        setUploadResult(data)
+      } catch (uploadError) {
+        setError(uploadError instanceof Error ? uploadError.message : String(uploadError))
+      } finally {
+        setIsLoading(false)
+      }
+
+      return
+    }
+
     setTimeout(() => {
       router.push("/loading")
     }, 1000)
@@ -67,10 +103,24 @@ export default function UploadPage() {
             />
           </div>
 
+          {error ? (
+            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          {uploadResult ? (
+            <div className="mb-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <p className="font-medium">Upload successful!</p>
+              <p className="mt-1">Public upload path: <code>{uploadResult.publicUrl}</code></p>
+              <p className="mt-1">Files: {uploadResult.files.length}</p>
+            </div>
+          ) : null}
+
           {/* Submit Button */}
           <Button
             onClick={handleGenerateCodeMap}
-            disabled={(!hasFile && !hasUrl) || isLoading}
+            disabled={(!selectedFiles && !hasUrl) || isLoading}
             size="lg"
             className="w-full"
           >
